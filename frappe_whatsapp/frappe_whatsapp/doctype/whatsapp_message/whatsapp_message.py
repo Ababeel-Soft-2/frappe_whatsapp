@@ -43,7 +43,6 @@ class WhatsAppMessage(Document):
 
             elif self.content_type == "audio":
                 data["text"] = {"link": link}
-
             try:
                 self.custom_notify(data)
                 self.status = "Success"
@@ -166,6 +165,10 @@ class WhatsAppMessage(Document):
         if data["type"]=="document":
             dt["filename"]="doc.pdf"
 
+        if dt[self.content_type_switch()] and  not dt[self.content_type_switch()].startswith("http"):
+            dt[self.content_type_switch()] = frappe.utils.get_url() + "/" + dt[self.content_type_switch()]
+
+
         response = requests.request("POST", url, data=dt, headers=headers)
         #self.message_id = response["id"]
     
@@ -212,6 +215,7 @@ def send_template(to, reference_doctype, reference_name, template):
 def send_doc_pdf(to, doctype,docname,print_format):
 
     pdf_url =generate_invoice(doctype,docname,print_format)
+
     try:
         doc = frappe.get_doc({
             "doctype": "WhatsApp Message",
