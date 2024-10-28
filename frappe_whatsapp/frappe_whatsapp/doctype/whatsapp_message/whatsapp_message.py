@@ -2,6 +2,10 @@
 # For license information, please see license.txt
 import json
 import frappe
+import string
+import random
+import requests
+from frappe.utils.pdf import get_pdf
 from frappe.model.document import Document
 from frappe.integrations.utils import make_post_request
 
@@ -41,7 +45,7 @@ class WhatsAppMessage(Document):
                 data["text"] = {"link": link}
 
             try:
-                self.notify(data)
+                self.custom_notify(data)
                 self.status = "Success"
             except Exception as e:
                 self.status = "Failed"
@@ -103,7 +107,7 @@ class WhatsAppMessage(Document):
                 "parameters": header_parameters,
             })
 
-        self.notify(data)
+        self.custom_notify(data)
 
     def notify(self, data):
         """Notify."""
@@ -138,6 +142,40 @@ class WhatsAppMessage(Document):
 
             frappe.throw(msg=error_message, title=res.get("error_user_title", "Error"))
 
+
+
+    def custom_notify(self, data):
+
+        headers = {'content-type': 'application/x-www-form-urlencoded'}
+        settings = frappe.get_doc(
+        "WhatsApp Settings",
+        "WhatsApp Settings",
+        )
+        token = settings.get_password("token")
+
+        url = f"{settings.url}{self.content_type_switch()}"
+
+        dt={}
+        dt["token"]=token
+        dt["to"]=data["to"]
+        if data["type"]=="text":
+            dt["body"]=data["text"]["body"]
+        elif data["type"]==self.content_type_switch():
+            dt[self.content_type_switch()]=data[self.content_type_switch()]["link"]
+            dt["caption"]=data[self.content_type_switch()]["caption"]
+        if data["type"]=="document":
+            dt["filename"]="doc.pdf"
+
+        response = requests.request("POST", url, data=dt, headers=headers)
+        #self.message_id = response["id"]
+    
+    def content_type_switch(self):
+        if self.content_type == "text":
+            return "chat"
+        else:
+            return self.content_type
+
+
     def format_number(self, number):
         """Format number."""
         if number.startswith("+"):
@@ -168,3 +206,45 @@ def send_template(to, reference_doctype, reference_name, template):
         doc.save()
     except Exception as e:
         raise e
+
+
+@frappe.whitelist()
+def send_doc_pdf(to, doctype,docname,print_format):
+
+    pdf_url =generate_invoice(doctype,docname,print_format)
+    try:
+        doc = frappe.get_doc({
+            "doctype": "WhatsApp Message",
+            "to": to,
+            "type": "Outgoing",
+            "message_type": "Manual",
+            "reference_doctype": doctype,
+            "reference_name": docname,
+            "content_type": "document",
+            "attach": pdf_url
+        })
+
+        doc.save()
+    except Exception as e:
+        raise e
+
+
+def generate_invoice(doctype,docname,print_format):
+    res = ''.join(random.choices(string.ascii_letters,k=7))
+    pdf =frappe.get_print(doctype,docname,print_format,as_pdf=True)
+    return save_pdf_to_frappe(f"{res}.pdf",pdf)
+ 
+def save_pdf_to_frappe(file_name, content):
+    # Create a new File document
+    file_doc = frappe.get_doc({
+        'doctype': 'File',
+        'file_name': file_name,
+        'content': content,
+        'is_private': 0,  # 0 for public files, 1 for private
+        'attached_to_doctype': '',  # Optional: specify if attached to another doctype
+        'attached_to_name': ''       # Optional: specify the name of the attached document
+    })
+    # Save the document
+    file_doc.save()
+    # Return the file URL
+    return file_doc.file_url
