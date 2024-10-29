@@ -134,6 +134,7 @@ class WhatsAppTemplates(Document):
             data["components"].append(self.get_header())
         if self.footer:
             data["components"].append({"type": "FOOTER", "text": self.footer})
+        return
         try:
             # post template to meta for update
             make_post_request(

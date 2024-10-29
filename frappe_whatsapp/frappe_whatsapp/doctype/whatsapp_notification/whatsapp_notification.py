@@ -2,12 +2,13 @@
 
 import json
 import frappe
+import requests
 from frappe.model.document import Document
 from frappe.utils.safe_exec import get_safe_globals, safe_exec
 from frappe.integrations.utils import make_post_request
 from frappe.desk.form.utils import get_pdf_link
 from frappe.utils import add_to_date, nowdate, datetime
-
+from string import Template
 
 class WhatsAppNotification(Document):
     """Notification."""
@@ -29,6 +30,8 @@ class WhatsAppNotification(Document):
 
     def send_scheduled_message(self) -> dict:
         """Specific to API endpoint Server Scripts."""
+        return
+        """ 
         safe_exec(
             self.condition, get_safe_globals(), dict(doc=self)
         )
@@ -40,6 +43,19 @@ class WhatsAppNotification(Document):
             "WhatsApp Templates", self.template,
             fieldname='actual_name'
         )
+        doc = frappe.get_doc(self.reference_doctype, d.name).as_dict()
+
+        self._contact_list=[]
+        users = self.get_users_by_role("Blogger")
+        for user  in users:
+            append_if_not_exists(self._contact_list,get_user_contact_number(user))
+     
+        data = {
+        "to": self._contact_list,
+        "doc":doc
+        }
+        self.custom_notify(data)
+        
         if language_code:
             for contact in self._contact_list:
                 data = {
@@ -55,9 +71,8 @@ class WhatsAppNotification(Document):
                     }
                 }
                 self.content_type = template.get("header_type", "text").lower()
-                self.notify(data)
-        # return _globals.frappe.flags
-
+                print("sche")
+        """
     def send_template_message(self, doc: Document):
         """Specific to Document Event triggered Server Scripts."""
         if self.disabled:
@@ -175,7 +190,15 @@ class WhatsAppNotification(Document):
                 })
             self.content_type = template.header_type.lower()
 
-            self.notify(data)
+            if self.custom_notification_recipient:
+                receptors = []
+                for role  in self.custom_notification_recipient:
+                    users = self.get_users_by_role(role.receiver_by_role)
+                    for user  in users:
+                        append_if_not_exists(receptors,get_user_contact_number(user))
+                data["to"]=tuple(receptors)
+            data["doc"]=doc_data
+            self.custom_notify(data)
 
     def notify(self, data):
         """Notify."""
@@ -233,6 +256,30 @@ class WhatsAppNotification(Document):
                 "meta_data": meta
             }).insert(ignore_permissions=True)
 
+
+
+    def custom_notify(self, data):
+        headers = {'content-type': 'application/x-www-form-urlencoded'}
+        settings = frappe.get_doc(
+        "WhatsApp Settings",
+        "WhatsApp Settings",
+        )
+        token = settings.get_password("token")
+
+        url = f"{settings.url}chat"
+
+        template = Template(self.code)
+        message = template.substitute(data["doc"])
+        dt={}
+        dt["token"]=token
+        dt["to"]=data["to"]
+        dt["body"]=message
+
+        response = requests.request("POST", url, data=dt, headers=headers)
+
+        if hasattr(response,"id"):
+            self.message_id = response["id"]
+
     def on_trash(self):
         """On delete remove from schedule."""
         if self.notification_type == "Scheduler Event":
@@ -289,6 +336,10 @@ class WhatsAppNotification(Document):
             # print(doc.name)
 
 
+
+    def get_users_by_role(self,role):
+        return frappe.get_all('Has Role',filters={"role":role,"parenttype":"User"},fields=['parent'],pluck="parent")
+
 @frappe.whitelist()
 def call_trigger_notifications():
     """Trigger notifications."""
@@ -314,3 +365,20 @@ def trigger_notifications(method="daily"):
             alert = frappe.get_doc("WhatsApp Notification", d.name)
             alert.get_documents_for_today()
            
+
+def get_user_contact_number(user_email):
+    return frappe.get_value("Contact", {"email_id": user_email}, "custom_whatsapp_number")  # Get the contact linked to the user
+
+
+def append_if_not_exists(my_list, item):
+    if item not in my_list and item!=None:
+        my_list.append(item)
+    return my_list
+
+def get_document_url(doctype, docname):
+    # Construct the base URL
+    base_url = frappe.utils.get_url()
+    doc = frappe.get_doc(doctype,docname)
+    # Create the document URL
+    doc_url = f"{base_url}{doc.get_url()}"
+    return doc_url

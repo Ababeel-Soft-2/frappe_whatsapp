@@ -144,33 +144,34 @@ class WhatsAppMessage(Document):
 
 
     def custom_notify(self, data):
-
+        
         headers = {'content-type': 'application/x-www-form-urlencoded'}
-        settings = frappe.get_doc(
-        "WhatsApp Settings",
-        "WhatsApp Settings",
-        )
+        settings = frappe.get_doc("WhatsApp Settings","WhatsApp Settings")
         token = settings.get_password("token")
-
         url = f"{settings.url}{self.content_type_switch()}"
-
         dt={}
         dt["token"]=token
         dt["to"]=data["to"]
+        
+        if self.is_reply:
+            dt["msgId"]=self.message_id
+            dt["type"]="reaction"
+        
         if data["type"]=="text":
             dt["body"]=data["text"]["body"]
+        
         elif data["type"]==self.content_type_switch():
             dt[self.content_type_switch()]=data[self.content_type_switch()]["link"]
             dt["caption"]=data[self.content_type_switch()]["caption"]
+            
+            if dt[self.content_type_switch()] and  not dt[self.content_type_switch()].startswith("http"):
+                dt[self.content_type_switch()] = frappe.utils.get_url() + "/" + dt[self.content_type_switch()]
+        
         if data["type"]=="document":
-            dt["filename"]="doc.pdf"
-
-        if dt[self.content_type_switch()] and  not dt[self.content_type_switch()].startswith("http"):
-            dt[self.content_type_switch()] = frappe.utils.get_url() + "/" + dt[self.content_type_switch()]
-
-
+            dt["filename"]=dt["caption"]
+        
         response = requests.request("POST", url, data=dt, headers=headers)
-        #self.message_id = response["id"]
+        self.message_id = response.json()["id"]
     
     def content_type_switch(self):
         if self.content_type == "text":
@@ -215,7 +216,6 @@ def send_template(to, reference_doctype, reference_name, template):
 def send_doc_pdf(to, doctype,docname,print_format):
 
     pdf_url =generate_invoice(doctype,docname,print_format)
-
     try:
         doc = frappe.get_doc({
             "doctype": "WhatsApp Message",
