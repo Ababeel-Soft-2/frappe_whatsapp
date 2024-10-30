@@ -216,6 +216,10 @@ def send_template(to, reference_doctype, reference_name, template):
 def send_doc_pdf(to, doctype,docname,print_format):
 
     pdf_url =generate_invoice(doctype,docname,print_format)
+    if pdf_url and not pdf_url.startswith("http"):
+        pdf_url = frappe.utils.get_url() + "/" + pdf_url
+    else:
+        pdf_url = pdf_url
     try:
         doc = frappe.get_doc({
             "doctype": "WhatsApp Message",
