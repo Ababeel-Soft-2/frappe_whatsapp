@@ -171,7 +171,7 @@ class WhatsAppMessage(Document):
             dt["filename"]=dt["caption"]
         
         response = requests.request("POST", url, data=dt, headers=headers)
-        self.message_id = response.json()["id"]
+        # self.message_id = response.json()["id"]
     
     def content_type_switch(self):
         if self.content_type == "text":
