@@ -170,7 +170,24 @@ class WhatsAppMessage(Document):
         if data["type"]=="document":
             dt["filename"]=self.label
     
-        response = requests.request("POST", url, data=dt, headers=headers)
+        #response = requests.request("POST", url, data=dt, headers=headers)
+       
+        try:
+            response = make_post_request(
+            url,headers=headers,data=dt,
+            )
+            self.message_id = response["message"]["id"]
+        except Exception as e:
+            frappe.get_doc(
+            {
+            "doctype": "WhatsApp Notification Log",
+            "template": "Text Message",
+            "meta_data": frappe.flags.integration_request.json(),
+            }
+            ).insert(ignore_permissions=True)
+
+       
+
         # self.message_id = response.json()["id"]
     
     def content_type_switch(self):
