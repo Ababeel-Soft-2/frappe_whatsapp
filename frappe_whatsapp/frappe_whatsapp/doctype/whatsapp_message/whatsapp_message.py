@@ -168,8 +168,8 @@ class WhatsAppMessage(Document):
                 dt[self.content_type_switch()] = frappe.utils.get_url() + "/" + dt[self.content_type_switch()]
         
         if data["type"]=="document":
-            dt["filename"]=dt["caption"]
-        
+            dt["filename"]=self.label
+    
         response = requests.request("POST", url, data=dt, headers=headers)
         # self.message_id = response.json()["id"]
     
