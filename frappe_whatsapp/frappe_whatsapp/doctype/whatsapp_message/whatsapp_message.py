@@ -231,7 +231,7 @@ def send_doc_pdf(to, doctype,docname,print_format):
             "content_type": "document",
             "attach": pdf_url,
             "label":doctype,
-            "message":doctype
+            "message":docname
         })
 
         doc.save()
