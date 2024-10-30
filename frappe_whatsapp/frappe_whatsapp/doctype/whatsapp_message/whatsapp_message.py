@@ -126,7 +126,8 @@ class WhatsAppMessage(Document):
                 headers=headers,
                 data=json.dumps(data),
             )
-            self.message_id = response["messages"][0]["id"]
+            self.message_id = frappe.flags.integration_request.json()["id"]
+            pass
 
         except Exception as e:
             res = frappe.flags.integration_request.json()["error"]
