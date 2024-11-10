@@ -127,7 +127,6 @@ class WhatsAppMessage(Document):
                 data=json.dumps(data),
             )
             self.message_id = frappe.flags.integration_request.json()["id"]
-            pass
 
         except Exception as e:
             res = frappe.flags.integration_request.json()["error"]
@@ -136,7 +135,7 @@ class WhatsAppMessage(Document):
                 {
                     "doctype": "WhatsApp Notification Log",
                     "template": "Text Message",
-                    "meta_data": frappe.flags.integration_request.json(),
+                    "meta_data": res
                 }
             ).insert(ignore_permissions=True)
 
@@ -171,22 +170,22 @@ class WhatsAppMessage(Document):
         if data["type"]=="document":
             dt["filename"]=self.label
     
-        #response = requests.request("POST", url, data=dt, headers=headers)
-       
         try:
-            response = make_post_request(
-            url,headers=headers,data=dt,
-            )
-            self.message_id = response["message"]["id"]
+            response = make_post_request(url,headers=headers,data=dt)
+            if not isinstance(response,list):
+                self.message_id = response["message"]["id"]
         except Exception as e:
-            frappe.get_doc(
-            {
-            "doctype": "WhatsApp Notification Log",
-            "template": "Text Message",
-            "meta_data": frappe.flags.integration_request.json(),
-            }
-            ).insert(ignore_permissions=True)
-
+            if not isinstance(response,list):
+                response=[response]
+            for resp in response:
+                frappe.get_doc(
+                {
+                "doctype": "WhatsApp Notification Log",
+                "template": "Text Message",
+                "meta_data": resp,
+                }
+                ).insert(ignore_permissions=True)
+           
        
 
         # self.message_id = response.json()["id"]
@@ -200,7 +199,7 @@ class WhatsAppMessage(Document):
 
     def format_number(self, number):
         """Format number."""
-        if number.startswith("+"):
+        if not isinstance(number,tuple) and number.startswith("+"):
             number = number[1 : len(number)]
 
         return number
@@ -232,13 +231,19 @@ def send_template(to, reference_doctype, reference_name, template):
 
 @frappe.whitelist()
 def send_doc_pdf(to, doctype,docname,print_format):
-
     pdf_url =generate_invoice(doctype,docname,print_format)
     if pdf_url and not pdf_url.startswith("http"):
         pdf_url = frappe.utils.get_url() + "/" + pdf_url
+
+    if not isinstance(to, list):
+        to = [to]
     else:
         pdf_url = pdf_url
+
+    print(" sending")
+    pdf_url="https://erp.ababeel.ly/files/Sales Invoice.pdf"
     try:
+        to = tuple(to)
         doc = frappe.get_doc({
             "doctype": "WhatsApp Message",
             "to": to,
@@ -252,15 +257,21 @@ def send_doc_pdf(to, doctype,docname,print_format):
             "message":docname
         })
 
-        doc.save()
+        res = doc.save()
     except Exception as e:
         raise e
+    return res
 
 
 def generate_invoice(doctype,docname,print_format):
     res = ''.join(random.choices(string.ascii_letters,k=7))
     pdf =frappe.get_print(doctype,docname,print_format,as_pdf=True)
     return save_pdf_to_frappe(f"{res}.pdf",pdf)
+
+def generate_pdf(doctype, name, format):
+    doc = frappe.get_doc(doctype, name)
+    pdf = get_pdf(doc, print_format=format)
+    return pdf
  
 def save_pdf_to_frappe(file_name, content):
     # Create a new File document
