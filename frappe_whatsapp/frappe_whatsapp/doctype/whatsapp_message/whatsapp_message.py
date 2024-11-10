@@ -240,8 +240,6 @@ def send_doc_pdf(to, doctype,docname,print_format):
     else:
         pdf_url = pdf_url
 
-    print(" sending")
-    pdf_url="https://erp.ababeel.ly/files/Sales Invoice.pdf"
     try:
         to = tuple(to)
         doc = frappe.get_doc({
