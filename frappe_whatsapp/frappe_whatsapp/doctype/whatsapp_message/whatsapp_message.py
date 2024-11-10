@@ -135,7 +135,7 @@ class WhatsAppMessage(Document):
                 {
                     "doctype": "WhatsApp Notification Log",
                     "template": "Text Message",
-                    "meta_data": res
+                    "meta_data": res.get("message")
                 }
             ).insert(ignore_permissions=True)
 
