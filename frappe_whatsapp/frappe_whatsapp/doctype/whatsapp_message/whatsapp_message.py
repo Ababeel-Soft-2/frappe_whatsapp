@@ -264,6 +264,8 @@ def send_doc_pdf(to, doctype,docname,print_format):
 def generate_invoice(doctype,docname,print_format):
     res = ''.join(random.choices(string.ascii_letters,k=7))
     pdf =frappe.get_print(doctype,docname,print_format,as_pdf=True)
+    if doctype=="Sales Invoice":
+        res += frappe.db.get_value(doctype,docname,"customer")
     return save_pdf_to_frappe(f"{res}.pdf",pdf)
 
 def generate_pdf(doctype, name, format):
