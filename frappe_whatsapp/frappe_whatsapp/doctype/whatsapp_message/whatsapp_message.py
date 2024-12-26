@@ -234,11 +234,14 @@ def send_doc_pdf(to, doctype,docname,print_format):
     pdf_url =generate_invoice(doctype,docname,print_format)
     if pdf_url and not pdf_url.startswith("http"):
         pdf_url = frappe.utils.get_url() + "/" + pdf_url
-
     if not isinstance(to, list):
         to = [to]
     else:
         pdf_url = pdf_url
+
+    title = docname
+    if doctype=="Sales Invoice":
+        title= frappe.db.get_value(doctype,docname,"customer")
 
     try:
         to = tuple(to)
@@ -252,7 +255,7 @@ def send_doc_pdf(to, doctype,docname,print_format):
             "content_type": "document",
             "attach": pdf_url,
             "label":doctype,
-            "message":docname
+            "message":title
         })
 
         res = doc.save()
@@ -264,8 +267,6 @@ def send_doc_pdf(to, doctype,docname,print_format):
 def generate_invoice(doctype,docname,print_format):
     res = ''.join(random.choices(string.ascii_letters,k=7))
     pdf =frappe.get_print(doctype,docname,print_format,as_pdf=True)
-    if doctype=="Sales Invoice":
-        res += frappe.db.get_value(doctype,docname,"customer")
     return save_pdf_to_frappe(f"{res}.pdf",pdf)
 
 def generate_pdf(doctype, name, format):
