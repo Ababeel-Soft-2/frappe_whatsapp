@@ -251,7 +251,7 @@ def send_doc_pdf(to, doctype,docname,print_format):
             "type": "Outgoing",
             "message_type": "Manual",
             "reference_doctype": doctype,
-            "reference_name": title,
+            "reference_name":docname,
             "content_type": "document",
             "attach": pdf_url,
             "label":doctype,
