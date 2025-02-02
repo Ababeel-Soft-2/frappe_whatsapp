@@ -75,6 +75,7 @@ class WhatsAppTemplates(Document):
 
 
     def after_insert(self):
+        return
         if self.template_name:
             self.actual_name = self.template_name.lower().replace(" ", "_")
 

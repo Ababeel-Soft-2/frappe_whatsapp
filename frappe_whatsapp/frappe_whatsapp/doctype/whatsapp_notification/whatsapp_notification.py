@@ -2,6 +2,7 @@
 
 import json
 import frappe
+from frappe import _
 import requests
 from frappe.model.document import Document
 from frappe.utils.safe_exec import get_safe_globals, safe_exec
@@ -9,6 +10,7 @@ from frappe.integrations.utils import make_post_request
 from frappe.desk.form.utils import get_pdf_link
 from frappe.utils import add_to_date, nowdate, datetime
 from string import Template
+import html2text
 
 class WhatsAppNotification(Document):
     """Notification."""
@@ -190,14 +192,19 @@ class WhatsAppNotification(Document):
                 })
             self.content_type = template.header_type.lower()
 
-            if self.custom_notification_recipient:
-                receptors = []
-                for role  in self.custom_notification_recipient:
-                    users = self.get_users_by_role(role.receiver_by_role)
-                    for user  in users:
-                        append_if_not_exists(receptors,get_user_contact_number(user))
-                data["to"]=tuple(receptors)
+            # if self.custom_notification_recipient:
+            #     receptors = []
+            #     for role  in self.custom_notification_recipient:
+            #         users = self.get_users_by_role(role.receiver_by_role)
+            #         for user  in users:
+            #             append_if_not_exists(receptors,get_user_contact_number(user))
+            #     data["to"]=tuple(receptors)
+
+
+
             data["doc"]=doc_data
+
+            
             self.custom_notify(data)
 
     def notify(self, data):
@@ -270,13 +277,27 @@ class WhatsAppNotification(Document):
 
         template = Template(self.code)
         message = template.substitute(data["doc"])
+
+        # data["doc"]["description"] = html2text.html2text(data["doc"]["description"])
+        if (data["doc"]["doctype"] == "ToDo") and 'reference_type' in (data["doc"]):
+            doc= frappe.get_doc(data["doc"]["reference_type"],data["doc"]["reference_name"])
+            url = frappe.utils.get_url() + doc.get_url()
+            data["doc"] = doc.as_dict()
+
+
+        msg = frappe.render_template(message,data["doc"])
+        msg+="\n"+str(url)
+
+        print(msg)
+        
         dt={}
         dt["token"]=token
         dt["to"]=data["to"]
-        dt["body"]=message
+        dt["body"]=msg
+
+
 
         response = requests.request("POST", url, data=dt, headers=headers)
-
         if hasattr(response,"id"):
             self.message_id = response["id"]
 
