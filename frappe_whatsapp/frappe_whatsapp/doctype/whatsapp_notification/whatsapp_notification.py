@@ -281,22 +281,17 @@ class WhatsAppNotification(Document):
         # data["doc"]["description"] = html2text.html2text(data["doc"]["description"])
         if (data["doc"]["doctype"] == "ToDo") and 'reference_type' in (data["doc"]):
             doc= frappe.get_doc(data["doc"]["reference_type"],data["doc"]["reference_name"])
-            url = frappe.utils.get_url() + doc.get_url()
+            doc_url = frappe.utils.get_url() + doc.get_url()
             data["doc"] = doc.as_dict()
-
-
-        msg = frappe.render_template(message,data["doc"])
-        msg+="\n"+str(url)
-
-        print(msg)
         
+        msg = frappe.render_template(message,data["doc"])
+        msg+="\n"+str(doc_url)
+
         dt={}
         dt["token"]=token
         dt["to"]=data["to"]
         dt["body"]=msg
-
-
-
+        
         response = requests.request("POST", url, data=dt, headers=headers)
         if hasattr(response,"id"):
             self.message_id = response["id"]
