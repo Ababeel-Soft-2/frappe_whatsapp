@@ -10,7 +10,7 @@ from frappe.integrations.utils import make_post_request
 from frappe.desk.form.utils import get_pdf_link
 from frappe.utils import add_to_date, nowdate, datetime
 from string import Template
-import html2text
+import asyncio
 
 class WhatsAppNotification(Document):
     """Notification."""
@@ -200,12 +200,19 @@ class WhatsAppNotification(Document):
             #             append_if_not_exists(receptors,get_user_contact_number(user))
             #     data["to"]=tuple(receptors)
 
-
-
             data["doc"]=doc_data
+            users=[]
+            contact_list=[]
+            for role in self.roles:  
+                users+= self.get_users_by_role(role.role)
 
-            
-            self.custom_notify(data)
+
+            if not self.roles :
+                self.custom_notify(data)
+            else:
+                for user  in users:
+                    data["to"]=contact_list,get_user_contact_number(user)
+                    self.custom_notify(data)
 
     def notify(self, data):
         """Notify."""
@@ -263,38 +270,9 @@ class WhatsAppNotification(Document):
                 "meta_data": meta
             }).insert(ignore_permissions=True)
 
-
-
-    def custom_notify(self, data):
-        headers = {'content-type': 'application/x-www-form-urlencoded'}
-        settings = frappe.get_doc(
-        "WhatsApp Settings",
-        "WhatsApp Settings",
-        )
-        token = settings.get_password("token")
-
-        url = f"{settings.url}chat"
-
-        template = Template(self.code)
-        message = template.substitute(data["doc"])
-
-        # data["doc"]["description"] = html2text.html2text(data["doc"]["description"])
-        if (data["doc"]["doctype"] == "ToDo") and 'reference_type' in (data["doc"]):
-            doc= frappe.get_doc(data["doc"]["reference_type"],data["doc"]["reference_name"])
-            doc_url = frappe.utils.get_url() + doc.get_url()
-            data["doc"] = doc.as_dict()
-        
-        msg = frappe.render_template(message,data["doc"])
-        msg+="\n"+str(doc_url)
-
-        dt={}
-        dt["token"]=token
-        dt["to"]=data["to"]
-        dt["body"]=msg
-        
-        response = requests.request("POST", url, data=dt, headers=headers)
-        if hasattr(response,"id"):
-            self.message_id = response["id"]
+    def custom_notify(self,data):
+        asyncio.run(custom_notify_c(self,data))
+    
 
     def on_trash(self):
         """On delete remove from schedule."""
@@ -383,7 +361,7 @@ def trigger_notifications(method="daily"):
            
 
 def get_user_contact_number(user_email):
-    return frappe.get_value("Contact", {"email_id": user_email}, "custom_whatsapp_number")  # Get the contact linked to the user
+    return frappe.get_value("User", {"name": user_email}, "phone")  # Get the contact linked to the user
 
 
 def append_if_not_exists(my_list, item):
@@ -398,3 +376,41 @@ def get_document_url(doctype, docname):
     # Create the document URL
     doc_url = f"{base_url}{doc.get_url()}"
     return doc_url
+
+
+async def custom_notify_c(self, data):
+    headers = {'content-type': 'application/x-www-form-urlencoded'}
+    settings = frappe.get_doc(
+    "WhatsApp Settings",
+    "WhatsApp Settings",
+    )
+    token = settings.get_password("token")
+
+    url = f"{settings.url}chat"
+
+    template = Template(self.code)
+
+    message = template.substitute(data["doc"])
+    
+    # data["doc"]["description"] = html2text.html2text(data["doc"]["description"])
+    if (data["doc"]["doctype"] == "ToDo") and 'reference_type' in (data["doc"]):
+        doc= frappe.get_doc(data["doc"]["reference_type"],data["doc"]["reference_name"])
+        doc_url = frappe.utils.get_url() + doc.get_url()
+        data["doc"] = doc.as_dict()
+    else:
+        doc= frappe.get_doc(data["doc"]["doctype"],data["doc"]["name"])
+        doc_url = frappe.utils.get_url() + doc.get_url()
+        data["doc"] = doc.as_dict()
+
+
+    msg = frappe.render_template(message,data["doc"])
+    msg+="\n"+str(doc_url)
+
+    dt={}
+    dt["token"]=token
+    dt["to"]=data["to"]
+    dt["body"]=msg
+    
+    response = requests.request("POST", url, data=dt, headers=headers)
+    if hasattr(response,"id"):
+        self.message_id = response["id"]

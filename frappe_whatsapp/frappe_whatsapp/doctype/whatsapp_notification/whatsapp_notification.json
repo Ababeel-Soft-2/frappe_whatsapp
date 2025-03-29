@@ -28,6 +28,8 @@
   "condition",
   "column_break_12",
   "fields",
+  "section_break_qqbi",
+  "roles",
   "help_section",
   "help_html",
   "header_type"
@@ -192,11 +194,20 @@
    "label": "Notification Name",
    "reqd": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "section_break_qqbi",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "roles",
+   "fieldtype": "Table",
+   "options": "Role Item"
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2024-08-24 13:53:36.666204",
+ "modified": "2025-03-29 17:33:51.513904",
  "modified_by": "Administrator",
  "module": "Frappe Whatsapp",
  "name": "WhatsApp Notification",
